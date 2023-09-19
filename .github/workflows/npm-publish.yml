@@ -1,0 +1,46 @@
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+
+name: Node.js Package
+
+on:
+  push:
+    branches: [ main ]
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: npm install
+      - name: Build React app
+        run: npm run build
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: build/
+  deploy:
+     needs: build
+     runs-on: ubuntu-latest
+     steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+    
+      - name: SSH into EC2 instance
+        uses: actions/checkout@v3
+        with:
+          key: ${{ secrets.DEPLOY_KEY }}
+          host: ${{ secrets.DEPLOYMENT_HOST }}
+    
+      - name: Copy build artifacts to EC2 instance
+        run: scp -o StrictHostKeyChecking=no build/* <span class="math-inline">\{\{ secrets\.DEPLOYMENT\_USERNAME \}\}@</span>{{ secrets.DEPLOYMENT_HOSTNAME }}:/var/www/html/
+    
+      - name: Restart Nginx
+        run: ssh <span class="math-inline">\{\{ secrets\.DEPLOYMENT\_USERNAME \}\}@</span>{{ secrets.DEPLOYMENT_HOST }} "sudo systemctl restart nginx"
+      
+  
